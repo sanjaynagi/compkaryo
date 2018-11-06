@@ -6,9 +6,10 @@ Created on Tue May 15 17:13:26 2018
 @author: beccalove
 """
 
-import unittest
-import compkaryo
 import allel
+import compkaryo
+import ingenos
+import unittest
 
 class CalculateGenotypesTestCase(unittest.TestCase):
     

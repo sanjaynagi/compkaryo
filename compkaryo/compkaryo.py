@@ -6,124 +6,135 @@ Created on Tue May 15 16:57:04 2018
 @author: beccalove
 """
 
-import numpy as np
 import allel
-from collections import namedtuple
+import argparse
+import numpy as np
+import sys
 
-Inversion = namedtuple('Inversion',['arm','start','end',"marker_file_path"])
+parser = argparse.ArgumentParser()
+parser.add_argument("vcf", help="path to variant call format file \
+                    containing the genotypes")
+parser.add_argument("inversion", help="inversion to be classified",
+                    choices=["2La","2Rj","2Rb","2Rc","2Rd","2Ru"])
+parser.add_argument("-o", "--out", help="name of the results file")
+args = parser.parse_args()
 
-inversionDict = {}
+##read in the predictive SNPs for the inversion of interest
 
-inversionDict["2La"] = Inversion(b'2L',20524058,42165532,"foo")
-inversionDict["2Rb"] = Inversion(b'2R',19023925,26758676,"foo")
-inversionDict["2Rc"] = Inversion(b'2R',26750000,31473100,"foo")
-inversionDict["2Ru"] = Inversion(b'2R',31473000,35505236,"foo")
-inversionDict["2Rj"] = Inversion(b'2R',3262186,15750717,"foo")
-inversionDict["2Rd"] = Inversion(b'2R',31480000,42600000,"foo")
+##extract the predictive SNPs from the supplied callset
 
-def construct_filter(inversion):
+##calculate the average genotype across the predictive SNPs
+
+##return the average genotype and the number of sites across which it was calculated
+
+inversionDict = {"2La" : ("2L","path/to/2La"),
+                 "2Rj" : ("2R","path/to/2Rj"),
+                 "2Rb" : ("2R","path/to/2Rb"),
+                 "2Rc" : ("2R","path/to/2Rc"),
+                 "2Rd" : ("2Rd","path/to/2Rd"),
+                 "2Ru" : ("2Ru","path/to/2Ru")}
+
+
+def import_data(callset_path):
     
-    chrom = inversionDict[inversion].arm
-    start = inversionDict[inversion].proximal_start
-    end = inversionDict[inversion].distal_end
+    callset = allel.read_vcf(callset_path,
+    fields = ['samples','calldata/GT','calldata/GQ','variants/CHROM',
+              'variants/FILTER_PASS', 'variants/POS','variants/QUAL',
+              'variants/REF','variants/ALT'])
     
-    flt = '((POS >= {start}) & (POS <= {end}) & (CHROM == {chrom}))'.format(
-            start=start, end=end, chrom=chrom)
-    
-    return flt
-
-def import_data(path_to_vtbl_or_h5):
-    
-    pass
+    return callset
 
 def import_inversion(inversion):
     
-    path = inversionDict[inversion].path
+    path = inversionDict[inversion][1]
     
-    with open(path) as f:
+    concordant_pos_list = np.loadtxt(path)    
+    
+    return concordant_pos_list
+
+def extract_vtbl_indices(concordant_pos_list, callset):
+    
+    chrom = inversionDict[args.inversion][0]
+    
+    indices = []
+
+    for site in concordant_pos_list:
+    
+        where = np.where( (callset["variants/POS"] == site) &\
+                         (callset["variants/CHROM"] == chrom))
+    
+        #print(where)
+    
+        if len(where[0]) > 0:
         
-        lines = f.read().splitlines()
+            #print(where[0][0])
+        
+            indices.append(where[0][0])
+            
+    return indices
+
+def extract_biallelic_SNPs(callset, indices):
+    
+    bi_bool =\
+    allel.GenotypeArray(callset["calldata/GT"][indices]).count_alleles().\
+    is_biallelic()
+    
+    return bi_bool
+    
+def calculate_genotype_at_concordant_sites(callset, bi_bool, indices):
+    
+    genos = allel.GenotypeArray(callset["calldata/GT"][indices][bi_bool])
+    
+    alt_count = genos.to_n_alt()
+    
+    is_called = genos.is_called()
+    
+    av_gts = np.mean(np.ma.MaskedArray(
+            alt_count, mask = ~is_called), axis=0).data
+            
+    total_sites = np.sum(is_called, axis=0)
+    
+    return av_gts, total_sites
+
+def main():
+    
+    callset = import_data(args.vcf)
+    
+    target_list = import_inversion(args.inversion)
+    
+    indices = extract_vtbl_indices(target_list, callset)
+    
+    bi_bool = extract_biallelic_SNPs(callset, indices)
+    
+    av_gts, total_sites = calculate_genotype_at_concordant_sites(
+            callset, bi_bool, indices)
+    
+    if not len(av_gts) == len(total_sites):
+        
+        raise ValueError("mean genotypes and total sites differ in length")
+    
+    if args.out is None:
+        
+        out = sys.stdout
+        
+    else:
+        
+        out = open(args.out, 'w')
         
     try:
         
-        float_list = [float(x) for x in lines]
+        for i in range(len(av_gts)):
         
-    except ValueError:
-        
-        raise
-        
-    if not all(x.is_integer() for x in float_list):
-        
-        raise ValueError("Non-integers present in concordance positions")
-        
-    concordant_pos_list = [int(x) for x in float_list]
-    
-    return concordant_pos_list
-        
-def filter_objects(flt, vtbl, gts):
-    
-    if not vtbl.shape[0] == gts.shape[0]:
-        
-        raise ValueError("Variant table and genotypes must be same length")
-        
-    bool_flt = vtbl.eval(flt)
-    
-    vtbl_chunk = vtbl[bool_flt]
-    
-    gts_chunk = gts[bool_flt]
-    
-    if not vtbl_chunk.shape[0] == gts_chunk.shape[0]:
-        
-        raise ValueError("Something has gone wrong in filtering")
-    
-    return(bool_flt, vtbl_chunk, gts_chunk)
-
-def extract_vtbl_indices(concordant_pos_list, vtbl):
-    
-    pos_indices_list = []
-        
-    vtbl_pos_list = vtbl["POS"]
-    
-    for pos in concordant_pos_list:
-        
-        get_index = (np.where(vtbl_pos_list == pos))[0]
-        
-        if len(get_index) == 1:
+            out_record = (av_gts[i],"\t",total_sites[i],"\n")
+                
+            out.write(out_record)
             
-            pos_indices_list.append(get_index[0])
-            
-    return pos_indices_list
-    
-def calculate_genotype_at_concordant_sites(pos_indices_list, gts):
-    
-    pos_indices = np.array(pos_indices_list)
-    
-    alt_counts = gts[[pos_indices]].to_n_alt()
-    
-    av_gts = np.sum(alt_counts, axis = 0) / len(pos_indices)
-    
-    return av_gts, len(pos_indices)
-
-def assign_karyos(avg_gts):
-    
-    karyos = []
-    
-    for sample in avg_gts:
+    finally:
         
-        if not 0 <= sample <= 2:
+        if args.out is not None:
             
-            raise ValueError("value out of bounds, must be 0 >= value >= 2")
+            out.close()
     
-        if sample < 0.66:
+if __name__ == "__main":
+    main()
 
-            karyos.append(0)
-
-        elif sample >= 0.66 and sample < 1.33:
-
-            karyos.append(1)
-
-        elif sample >= 1.33:
-
-            karyos.append(2)
-            
-    return karyos
