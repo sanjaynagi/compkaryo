@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='compkaryo',
      version='0.1',
@@ -8,5 +8,6 @@ setup(name='compkaryo',
      author_email='rachelrebeccalove@gmail.com',
      license='GNU General Public License v3.0',
      packages=['compkaryo'],
-     zip_safe=False
+     zip_safe=False,
+     include_package_data=True
      )

@@ -9,6 +9,7 @@ Created on Tue May 15 16:57:04 2018
 import allel
 import argparse
 import numpy as np
+import pkgutil
 import sys
 
 
@@ -20,27 +21,29 @@ import sys
 
 ##return the average genotype and the # of sites across which it was calculated
 
-inversionDict = {"2La" : ("2L","path/to/2La"),
-                 "2Rj" : ("2R","path/to/2Rj"),
-                 "2Rb" : ("2R","path/to/2Rb"),
-                 "2Rc" : ("2R","path/to/2Rc"),
-                 "2Rd" : ("2Rd","path/to/2Rd"),
-                 "2Ru" : ("2Ru","path/to/2Ru"),
-                 "test" : ("fooY","../test/test_targets_clean.txt")}
+inversionDict = {"2La" : ("2L","targets/targets_2La.txt"),
+                 "2Rj" : ("2R","targets/targets_2Rj.txt"),
+                 "2Rb" : ("2R","targets/targets_2Rb.txt"),
+                 "2Rc" : ("2R","targets/targets_2Rc.txt"),
+                 "2Rd" : ("2Rd","targets/targets_2Rd.txt"),
+                 "2Ru" : ("2Ru","targets/targets_2Ru.txt"),
+                 "test" : ("fooY","targets/test_targets_clean.txt")}
 
-def parse_args():
+def parse_args(custom_args=None):
     
     parser = argparse.ArgumentParser()
     parser.add_argument("vcf", help="path to variant call format file \
                 containing the genotypes")
     parser.add_argument("inversion", help="inversion to be classified",
                 choices=["2La","2Rj","2Rb","2Rc","2Rd","2Ru","test"])
-    parser.add_argument("-o", "--out", help="name of the results file")
+    parser.add_argument("-o", "--out",
+                        help="name of the results file")
+    parser.add_argument("-s", "--samples", help="samples to include", 
+                        nargs='+')
     
-    args = parser.parse_args()
+    args = parser.parse_args(custom_args)
 
     return args
-
 
 def import_data(callset_path):
     
@@ -55,18 +58,23 @@ def import_inversion(inversion):
     
     path = inversionDict[inversion][1]
     
-    concordant_pos_list = np.loadtxt(path)    
-    
-    return concordant_pos_list
+    targets_raw = pkgutil.get_data("compkaryo",path)
 
-def extract_vtbl_indices(concordant_pos_list, callset, chrom=None):
+    targets = np.array([int(entry) 
+    for entry 
+    in targets_raw.decode().splitlines() 
+    if not entry.startswith('#')])    
+    
+    return targets
+
+def extract_vtbl_indices(targets, callset, chrom=None):
     
     if not chrom:
         chrom = inversionDict[args.inversion][0]
     
     indices = []
 
-    for site in concordant_pos_list:
+    for site in targets:
     
         where = np.where( (callset["variants/POS"] == site) &\
                          (callset["variants/CHROM"] == chrom))
@@ -81,17 +89,39 @@ def extract_vtbl_indices(concordant_pos_list, callset, chrom=None):
             
     return indices
 
-def extract_biallelic_SNPs(callset, indices):
+def create_samples_bool(callset):
+    
+    if len(args.samples) == 1 and args.samples[0].endswith('.txt'):
+
+        samples_file_handle = args.samples[0]
+            
+        samples = np.genfromtxt(samples_file_handle)
+    
+    else:
+        
+        samples = np.array(args.samples)
+    
+    samples_bool =\
+    np.array([sample in callset["samples"] for sample in samples])
+    
+    return samples_bool
+            
+'''def extract_biallelic_SNPs(callset, indices):
     
     bi_bool =\
     allel.GenotypeArray(callset["calldata/GT"][indices]).count_alleles().\
     max_allele() <= 1
     
-    return bi_bool
+    return bi_bool'''
     
-def calculate_genotype_at_concordant_sites(callset, bi_bool, indices):
+def calculate_genotype_at_concordant_sites(callset, indices, 
+                                           samples_bool=None):
     
-    genos = allel.GenotypeArray(callset["calldata/GT"][indices][bi_bool])
+    genos = allel.GenotypeArray(callset["calldata/GT"][indices])
+    
+    if samples_bool is not None:
+        
+        genos = genos.subset(sel1 = samples_bool)
     
     alt_count = genos.to_n_alt()
     
@@ -112,10 +142,16 @@ def main():
     
     indices = extract_vtbl_indices(target_list, callset)
     
-    bi_bool = extract_biallelic_SNPs(callset, indices)
+    samples_bool = None
+    
+    if args.samples:
+        
+        samples_bool = create_samples_bool(callset)
+    
+    #bi_bool = extract_biallelic_SNPs(callset, indices)
     
     av_gts, total_sites = calculate_genotype_at_concordant_sites(
-            callset, bi_bool, indices)
+            callset, indices, samples_bool)
     
     if not len(av_gts) == len(total_sites):
         
@@ -128,17 +164,15 @@ def main():
     else:
         
         out = open(args.out, 'w')
-        
+    
     try:
-        
-        for i in range(len(av_gts)):
-        
-            record = (str(av_gts[i]),str(total_sites[i]))
-            out_record = "\t".join(record) + "\n"
-            
-            '''pickedRecord = random.choice(records)
-            alignRecord = "\t".join(pickedRecord) + "\n"'''
                 
+        for i in range(len(av_gts)):
+                            
+            record = (str(av_gts[i]),str(total_sites[i]))
+            
+            out_record = "\t".join(record) + "\n"
+                            
             out.write(out_record)
             
     finally:
@@ -146,8 +180,8 @@ def main():
         if args.out is not None:
             
             out.close()
-    
+
 if __name__ == "__main__":
+    
     args = parse_args()
     main()
-
