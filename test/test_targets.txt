@@ -10,7 +10,7 @@ foo	69
 foo	112
 foo	125
 foo	141
-foo	166#10
+foo	166
 foo	175
 foo	182
 foo	191
@@ -20,7 +20,7 @@ foo	232
 foo	242
 foo	255
 foo	267
-foo	278#20
+foo	278
 foo	299
 foo	304
 foo	310
@@ -30,7 +30,7 @@ foo	337
 foo	345
 foo	352
 foo	380
-foo	393#30
+foo	393
 foo	401
 foo	434
 foo	445
@@ -40,7 +40,7 @@ foo	485
 foo	499
 foo	515
 foo	525
-foo	534#40
+foo	534
 foo	543
 foo	555
 foo	570
