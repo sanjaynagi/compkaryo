@@ -130,8 +130,8 @@ def calculate_genotype_at_concordant_sites(callset, indices, samples_bool=None,
     '''Calculate the average number of alternate alleles for each specimen at
     each tag SNP.'''
 
-    genos = allel.GenotypeArray(callset["calldata/GT"]).subset(sel0 = indices)
-    
+    genos = allel.GenotypeArray(callset["calldata/GT"]).subset(sel0=indices)
+
     if samples_bool is not None:
 
         genos = genos.subset(sel1=samples_bool)
@@ -142,27 +142,27 @@ def calculate_genotype_at_concordant_sites(callset, indices, samples_bool=None,
 
     av_gts = np.mean(np.ma.MaskedArray(alt_count,
                                        mask=~is_called), axis=0).data
-    
+
     if totals:
-        
+
         match_dict = {0: None, 1: None, 2: None}
-        
-        for value in [0,1,2]:
-        
-            n_matches = np.sum(np.ma.MaskedArray(alt_count, 
-                                                 mask = ~is_called) == value,
-                                                 axis=0).data
-            
+
+        for value in [0, 1, 2]:
+
+            n_matches = np.sum(np.ma.MaskedArray(alt_count,
+                                                 mask=~is_called) == value,
+                                axis=0).data
+
             match_dict[value] = n_matches
 
     total_sites = np.sum(is_called, axis=0)
-    
+
     if totals:
-        
+
         data = av_gts, total_sites, match_dict[0], match_dict[1], match_dict[2]
-        
+
     else:
-        
+
         data = av_gts, total_sites
 
     return data
@@ -179,26 +179,24 @@ def main(args):
     indices = extract_vtbl_indices(target_list, callset)
 
     samples_bool = None
-    
-    totals = args.totals
 
     if args.samples:
 
         samples_bool = create_samples_bool(callset)
 
     #bi_bool = extract_biallelic_SNPs(callset, indices)
-    
-    if totals:
-        
+
+    if args.totals:
+
         av_gts, total_sites, num_0, num_1, num_2 =\
         calculate_genotype_at_concordant_sites(callset, indices, samples_bool,
-                                               totals)
+                                               args.totals)
 
     else:
-        
+
         av_gts, total_sites =\
         calculate_genotype_at_concordant_sites(callset, indices, samples_bool,
-                                               totals)
+                                               args.totals)
 
     if not len(av_gts) == len(total_sites):
 
@@ -215,14 +213,14 @@ def main(args):
     try:
 
         for i, gts in enumerate(av_gts):
-            
-            if totals:
-                
+
+            if args.totals:
+
                 record = (str(gts), str(total_sites[i]), str(num_0[i]),
                           str(num_1[i]), str(num_2[i]))
-            
+
             else:
-                
+
                 record = (str(gts), str(total_sites[i]))
 
             out_record = "\t".join(record) + "\n"
