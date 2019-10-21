@@ -4,7 +4,7 @@ Compkaryo (short for "computational karyotyping") is a Python package for taking
 
 Compkaryo does not currently do any filtering of the VCF. The file should be filtered to mask low-quality genotypes (we recommend masking everything with a GQ less than 20) before running compkaryo. Including low-quality genotypes in the calculation may __significantly__ skew the results.
 
-Compkaryo requires Python 3.
+Compkaryo requires Python 3 and depends on numpy and scikit-allel.
 
 __Usage:__
 
