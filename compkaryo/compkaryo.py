@@ -9,42 +9,23 @@ Created on Tue May 15 16:57:04 2018
 import argparse
 import pkgutil
 import sys
+
 import numpy as np
 import allel
 
 
-def get_numbers_dict(ploidy):
-    numbers = {
-        'samples':1,
-        'variants/CHROM': 1,
-        'variants/POS': 1,
-        'variants/ID': 1,
-        'variants/REF': 1,
-        'variants/ALT': 'A',
-        'variants/QUAL': 1,
-        'variants/DP': 1,
-        'variants/AN': 1,
-        'variants/AC': 'A',
-        'variants/AF': 'A',
-        'variants/MQ': 1,
-        'variants/ANN': 1,
-        'calldata/DP': 1,
-        'calldata/GT': ploidy,
-        'calldata/GQ': 1,
-        'calldata/HQ': 2,
-        'calldata/AD': 'R',
-        'calldata/MQ0': 1,
-        'calldata/MQ': 1,
-        }
-    return(numbers)
-
-
 ## read in the predictive SNPs for the inversion of interest
+
 ## extract the predictive SNPs from the supplied callset
+
 ## calculate the average genotype across the predictive SNPs
+
 ## return the average genotype and the # of sites across which it was calculated
+
 ## please note: you can modify this software to work in other systems
+
 ## or with other SNPs by changing inversionDict
+
 
 inversionDict = {"2La" : ("2L", "targets/2La_targets.txt"),
                  "2Rj" : ("2R", "targets/2Rj_targets.txt"),
@@ -79,6 +60,37 @@ def parse_args(custom_args=None):
     args = parser.parse_args(custom_args)
 
     return args
+
+def get_numbers_dict(ploidy):
+
+    """ 
+    Initialise dict for sci-kit allel.read_vcf() 
+    Allows for variable ploidy in vcf (useful for pool/RNA-Seq)
+    """
+    numbers = {
+        'samples':1,
+        'variants/CHROM': 1,
+        'variants/POS': 1,
+        'variants/ID': 1,
+        'variants/REF': 1,
+        'variants/ALT': 'A',
+        'variants/QUAL': 1,
+        'variants/DP': 1,
+        'variants/AN': 1,
+        'variants/AC': 'A',
+        'variants/AF': 'A',
+        'variants/MQ': 1,
+        'variants/ANN': 1,
+        'calldata/DP': 1,
+        'calldata/GT': ploidy,
+        'calldata/GQ': 1,
+        'calldata/HQ': 2,
+        'calldata/AD': 'R',
+        'calldata/MQ0': 1,
+        'calldata/MQ': 1,
+        }
+        
+    return numbers
 
 def import_data(callset_path):
 
